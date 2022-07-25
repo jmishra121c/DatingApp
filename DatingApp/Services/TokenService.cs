@@ -10,6 +10,7 @@ namespace DatingApp.Services
     public class TokenService : ITokenService
     {
         private readonly SymmetricSecurityKey _key;
+
         public TokenService(IConfiguration config)
         {
             _key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(config["TokenKey"]));

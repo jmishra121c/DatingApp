@@ -1,5 +1,6 @@
 ﻿using DatingApp.Data;
 using DatingApp.DTO;
+using DatingApp.Interfaces;
 using DatingApp.Model;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
@@ -12,13 +13,15 @@ namespace DatingApp.Controllers
     public class AccountController : BaseApiController
     {
         private readonly AppDbContext context;
+        private readonly ITokenService tokenServices;
 
-        public AccountController(AppDbContext context)
+        public AccountController(AppDbContext context, ITokenService tokenServices)
         {
             this.context = context;
+            this.tokenServices = tokenServices;
         }
         [HttpPost("register")]
-        public async Task<ActionResult<AppUser>> Register(RegisterDto registerDto)
+        public async Task<ActionResult<UserDto>> Register(RegisterDto registerDto)
         {
             if(await UserExist(registerDto.Username)) return BadRequest("Username is Taken.");
             using var hmac = new HMACSHA512();
@@ -30,11 +33,15 @@ namespace DatingApp.Controllers
             };
             context.Users.Add(user);
             await context.SaveChangesAsync();
-            return user;
+            return new UserDto
+            {
+                Username = user.UserName,
+                Token = tokenServices.CreateToken(user)
+            };
 
         }
         [HttpPost("login")]
-        public async Task<ActionResult<AppUser>> Login(LoginDto loginDto)
+        public async Task<ActionResult<UserDto>> Login(LoginDto loginDto)
         {
             var user = await context.Users.SingleOrDefaultAsync(x => x.UserName == loginDto.Username);
             if (user == null) return Unauthorized("Invalid Username.");
@@ -44,7 +51,11 @@ namespace DatingApp.Controllers
             {
                 if (computedHash[i] != user.PaaswordHash[i]) return Unauthorized("Invalid Password.");
             }
-            return user;
+            return new UserDto
+            {
+                Username = user.UserName,
+                Token = tokenServices.CreateToken(user)
+            };
         }
         private async Task<bool> UserExist(string username)
         {
